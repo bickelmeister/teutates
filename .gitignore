@@ -1,0 +1,52 @@
+# Go
+bin/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+
+# Go build cache
+.cache/
+.go/
+
+# Dependency
+go.sum
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node / Frontend
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+dist/
+build/
+
+# Tailwind CSS
+frontend/styles.css
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Temp
+tmp/
+temp/
