@@ -93,11 +93,6 @@ This project is **dual-licensed**:
 Use this software freely for private, educational, and non-profit projects.
 [Read the GPL v3 License](./LICENSE)
 
-### 💼 Commercial License
-For commercial use (integrating into paid products, SaaS offerings, or business applications), a Commercial License is required.
-
-**Interested in commercial licensing?** [Contact us](mailto:your-email@example.com)
-
 ---
 
 ### Quick Reference
