@@ -31,8 +31,11 @@ yarn-error.log*
 dist/
 build/
 
-# Generated UI bundle
-ui/assets/
+# Generated UI bundle, embedded into the binary at build time.
+# The directory itself is tracked so `go:embed` has something to match on a
+# fresh clone, before the UI has ever been built.
+backend/webui/*
+!backend/webui/.gitkeep
 ui/.test-build/
 
 # Environment

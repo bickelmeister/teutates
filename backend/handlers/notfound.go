@@ -23,7 +23,7 @@ func NotFound(c *gin.Context) {
 	if !strings.HasPrefix(path, apiPrefix) {
 		c.JSON(http.StatusNotFound, errorBody{
 			Error: fmt.Sprintf("Nothing is served at %s.", path),
-			Hint:  "The interface lives at / — if an asset is missing, run `npm run build` in the ui directory.",
+			Hint:  "The interface is served at /. If it is missing, build it with `npm run build` in the ui directory and restart the server.",
 		})
 		return
 	}
@@ -43,5 +43,15 @@ func MethodNotAllowed(c *gin.Context) {
 	c.JSON(http.StatusMethodNotAllowed, errorBody{
 		Error: fmt.Sprintf("%s is not supported on %s.", c.Request.Method, c.Request.URL.Path),
 		Hint:  "teutates is read-only for now; every endpoint answers GET.",
+	})
+}
+
+// UINotBuilt answers a request for part of the interface that is not there.
+// On a fresh clone the embedded copy is empty until the UI has been built,
+// and "nothing is served here" would leave the reader guessing why.
+func UINotBuilt(c *gin.Context, name string) {
+	c.JSON(http.StatusNotFound, errorBody{
+		Error: fmt.Sprintf("The interface file %s is missing.", name),
+		Hint:  "Build it with `npm run build` in the ui directory, then restart the server so the new files are embedded.",
 	})
 }
