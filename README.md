@@ -30,21 +30,29 @@ teutates/
 ├── backend/
 │   ├── main.go                 # Gin server, static UI, flags
 │   ├── handlers/
-│   │   └── config.go           # GET /api/config
+│   │   ├── config.go           # GET /api/config
+│   │   └── tasks.go            # GET /api/tasks
 │   ├── taskwarrior/
 │   │   ├── config.go           # `task _show` -> effective config
 │   │   ├── taskrc.go           # ~/.taskrc + includes -> value origins
+│   │   ├── tasks.go            # `task export` -> task list
+│   │   ├── decode.go           # tolerant decoding of export fields
 │   │   └── service.go          # caching, invalidated on rc mtime
 │   └── go.mod
 ├── ui/
 │   ├── index.html              # app shell, pre-paint theme bootstrap
 │   ├── src/
 │   │   ├── main.ts             # entrypoint
+│   │   ├── router.ts           # hash router, one view at a time
+│   │   ├── view.ts             # the contract every view implements
+│   │   ├── tasks.ts            # task list view
 │   │   ├── settings.ts         # settings view
 │   │   ├── theme.ts            # light / dark / system
+│   │   ├── format.ts           # relative dates, urgency
+│   │   ├── ui.ts               # shared notice / segmented control
 │   │   ├── api.ts              # typed client for /api
 │   │   └── input.css           # Tailwind + theme tokens
-│   ├── test/ui.test.ts         # headless DOM tests (jsdom)
+│   ├── test/                   # headless DOM tests (jsdom)
 │   └── assets/                 # build output, not committed
 └── README.md
 ```
@@ -93,7 +101,7 @@ cd ui && npm run typecheck && npm test
 ## Features
 
 - [x] View Taskwarrior settings (read-only), grouped, searchable, with overrides marked
-- [ ] List all tasks
+- [x] List tasks (read-only), sorted by urgency, filterable by status and text
 - [ ] Create new task
 - [ ] Edit existing task
 - [ ] Mark task as done
@@ -106,7 +114,7 @@ cd ui && npm run typecheck && npm test
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/config` | Effective Taskwarrior configuration with value origins |
-| GET | `/api/tasks` | Fetch all tasks *(planned)* |
+| GET | `/api/tasks` | List tasks, filtered by status |
 | POST | `/api/tasks` | Create new task *(planned)* |
 | GET | `/api/tasks/:id` | Fetch single task *(planned)* |
 | PUT | `/api/tasks/:id` | Update task *(planned)* |
@@ -138,8 +146,46 @@ falls back to `off` without a TTY.
 }
 ```
 
-Errors return `{ "error": "...", "hint": "..." }` with `503` when `task` is not
-on the PATH, `504` on a timeout, and `500` otherwise.
+### `GET /api/tasks`
+
+Returns the tasks from `task export`, sorted by urgency. `status` selects the
+set and accepts only `pending` (the default), `completed`, or `all`; anything
+else is rejected with `400` and never reaches the command line.
+
+Dates are converted from Taskwarrior's `20260831T215959Z` format to RFC 3339 so
+the browser can parse them. Attributes that are not part of the standard schema
+are collected under `udas`, since user-defined attributes differ per
+installation and a fixed schema would drop them.
+
+```json
+{
+  "status": "pending",
+  "counts": { "total": 28, "pending": 28, "active": 2, "overdue": 4 },
+  "udaLabels": { "pom": "Pomodoris" },
+  "tasks": [
+    {
+      "id": 19,
+      "uuid": "46df3135-ff84-496a-891c-b1bf79991a67",
+      "description": "Flaschenvertrag fertigstellen",
+      "status": "pending",
+      "tags": ["privat"],
+      "priority": "H",
+      "urgency": 24.4096,
+      "due": "2026-08-23T21:59:59Z",
+      "udas": { "pom": "1" }
+    }
+  ]
+}
+```
+
+> **`id` is not an identity.** Taskwarrior assigns short working ids to pending
+> tasks only; completed tasks export as `id: 0`. Use `uuid` to identify a task.
+
+### Errors
+
+Every endpoint returns `{ "error": "...", "hint": "..." }` on failure, with
+`400` for an invalid parameter, `503` when `task` is not on the PATH, `504` on a
+timeout, and `500` otherwise.
 
 ## License
 
