@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>teutates</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+    <script>
+      // Applied before first paint so a dark-mode reload never flashes white.
+      (function () {
+        try {
+          var stored = localStorage.getItem("teutates.theme");
+          var dark =
+            stored === "dark" ||
+            ((stored === null || stored === "system") &&
+              window.matchMedia("(prefers-color-scheme: dark)").matches);
+          document.documentElement.classList.toggle("dark", dark);
+        } catch (e) {
+          /* Private browsing can throw on localStorage; the light theme is fine. */
+        }
+      })();
+    </script>
+  </head>
+  <body class="h-full font-sans">
+    <div class="flex h-full">
+      <!-- Sidebar -->
+      <nav
+        class="flex w-60 shrink-0 flex-col border-r border-line bg-surface max-md:hidden"
+        aria-label="Main"
+      >
+        <div class="px-5 py-5">
+          <span class="text-sm font-semibold tracking-tight">teutates</span>
+          <span class="ml-1.5 text-xs text-muted">Taskwarrior</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-3 pb-4">
+          <a
+            href="#tasks"
+            class="block rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-raised hover:text-fg"
+            >Tasks</a
+          >
+          <a
+            href="#settings"
+            aria-current="page"
+            class="mt-0.5 block rounded-md bg-raised px-2.5 py-1.5 text-sm font-medium"
+            >Settings</a
+          >
+          <!-- Submenu: one entry per settings group, filled in by the app. -->
+          <ul id="group-nav" class="mt-1 space-y-px border-l border-line pl-3 ml-2.5"></ul>
+        </div>
+
+        <div class="border-t border-line p-3">
+          <div
+            id="theme-switch"
+            role="radiogroup"
+            aria-label="Colour theme"
+            class="flex gap-0.5 rounded-md bg-raised p-0.5"
+          ></div>
+        </div>
+      </nav>
+
+      <!-- Main -->
+      <main class="flex min-w-0 flex-1 flex-col">
+        <header
+          class="sticky top-0 z-10 border-b border-line bg-bg/85 px-6 py-4 backdrop-blur-sm md:px-8"
+        >
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <h1 class="text-base font-semibold tracking-tight">Settings</h1>
+            <p id="meta" class="text-xs text-muted"></p>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <input
+              id="search"
+              type="search"
+              placeholder="Filter keys and values…"
+              autocomplete="off"
+              spellcheck="false"
+              aria-label="Filter settings"
+              class="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
+            />
+            <label
+              class="flex cursor-pointer select-none items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm text-muted has-checked:border-accent has-checked:text-fg"
+            >
+              <input id="only-changed" type="checkbox" class="accent-accent" />
+              Changed only
+            </label>
+          </div>
+        </header>
+
+        <div id="content" class="flex-1 overflow-y-auto px-6 py-6 md:px-8"></div>
+      </main>
+    </div>
+
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>
