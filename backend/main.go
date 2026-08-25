@@ -24,6 +24,11 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
+	// Without this Gin answers a wrong method with a 404, which sends the
+	// reader looking for a missing route rather than a wrong verb.
+	router.HandleMethodNotAllowed = true
+	router.NoRoute(handlers.NotFound)
+	router.NoMethod(handlers.MethodNotAllowed)
 
 	service := taskwarrior.NewService()
 	router.GET("/api/config", handlers.NewConfigHandler(service).Get)

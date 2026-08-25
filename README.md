@@ -183,9 +183,21 @@ installation and a fixed schema would drop them.
 
 ### Errors
 
-Every endpoint returns `{ "error": "...", "hint": "..." }` on failure, with
-`400` for an invalid parameter, `503` when `task` is not on the PATH, `504` on a
-timeout, and `500` otherwise.
+Every response carries the same shape on failure, including unknown routes, so
+the interface always has something to show:
+
+```json
+{ "error": "Unknown API endpoint /api/nope.", "hint": "If this endpoint was added recently, restart the server …" }
+```
+
+| Status | Cause |
+|--------|-------|
+| `400` | Invalid parameter, e.g. an unsupported `status` value |
+| `404` | Unknown route or missing static file |
+| `405` | Known path, wrong method — teutates is read-only and answers `GET` |
+| `503` | `task` is not on the PATH |
+| `504` | Taskwarrior did not respond within the timeout |
+| `500` | Anything else |
 
 ## License
 
