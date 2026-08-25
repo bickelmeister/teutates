@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* Dark mode is driven by a class on <html>, set before first paint by the
+   inline bootstrap script in index.html. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* The palette lives in custom properties so both themes are defined in one
+   place and a future accent change is a single edit. */
+:root {
+  --bg: #fbfbfa;
+  --surface: #ffffff;
+  --surface-raised: #f4f4f2;
+  --fg: #1a1a19;
+  --muted: #71716c;
+  --line: #e5e5e1;
+  --accent: #b8542a;
+  --accent-soft: #fdf1eb;
+}
+
+.dark {
+  --bg: #131313;
+  --surface: #1a1a1a;
+  --surface-raised: #232322;
+  --fg: #e9e9e6;
+  --muted: #8f8f88;
+  --line: #2c2c2b;
+  --accent: #e08a5c;
+  --accent-soft: #2a1c14;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--surface-raised);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Only colours animate; layout and motion stay still. */
+  a,
+  button,
+  input,
+  [data-setting] {
+    transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      transition-duration: 0ms !important;
+    }
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}

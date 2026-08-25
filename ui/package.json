@@ -1,0 +1,23 @@
+{
+  "name": "teutates-ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:css": "tailwindcss -i src/input.css -o assets/styles.css --minify",
+    "build:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --minify --outfile=assets/app.js",
+    "build": "npm run build:css && npm run build:js",
+    "watch:css": "tailwindcss -i src/input.css -o assets/styles.css --watch",
+    "watch:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=assets/app.js --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "esbuild test/ui.test.ts --bundle --platform=node --format=esm --packages=external --outfile=.test-build/ui.test.mjs && node --test .test-build/ui.test.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.14",
+    "@types/jsdom": "^30.0.0",
+    "esbuild": "^0.25.10",
+    "jsdom": "^30.0.1",
+    "tailwindcss": "^4.1.14",
+    "typescript": "^5.9.3"
+  }
+}
