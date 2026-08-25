@@ -13,6 +13,10 @@ function isUserSet(setting: Setting): boolean {
   return setting.source === "taskrc";
 }
 
+function isUnrecognized(setting: Setting): boolean {
+  return setting.unrecognized === true;
+}
+
 function sourceLabel(setting: Setting): string {
   if (setting.source === "taskrc") return "taskrc";
   if (setting.source.startsWith("include:")) return setting.source.slice(8);
@@ -36,11 +40,15 @@ function renderRow(setting: Setting): HTMLElement {
   row.role = "button";
   row.title = "Copy key=value";
 
-  const accent = isUserSet(setting)
-    ? "border-l-accent bg-accent-soft/40"
-    : setting.isOverride
-      ? "border-l-line"
-      : "border-l-transparent";
+  // An unrecognized key outranks the origin: it is not merely changed, it
+  // does nothing at all.
+  const accent = isUnrecognized(setting)
+    ? "border-l-warn bg-warn-soft/50"
+    : isUserSet(setting)
+      ? "border-l-accent bg-accent-soft/40"
+      : setting.isOverride
+        ? "border-l-line"
+        : "border-l-transparent";
   row.className = `group grid cursor-pointer grid-cols-1 gap-x-6 gap-y-0.5 border-l-2 px-3 py-2 hover:bg-raised sm:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] ${accent}`;
 
   const key = document.createElement("div");
@@ -73,9 +81,19 @@ function renderRow(setting: Setting): HTMLElement {
   if (setting.isOverride) {
     const badge = document.createElement("span");
     badge.className =
-      "mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide " +
+      "mt-1 mr-1 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide " +
       (isUserSet(setting) ? "bg-accent-soft text-accent" : "bg-raised text-muted");
     badge.textContent = sourceLabel(setting);
+    values.append(badge);
+  }
+
+  if (isUnrecognized(setting)) {
+    const badge = document.createElement("span");
+    badge.className =
+      "mt-1 inline-block rounded bg-warn-soft px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warn";
+    badge.textContent = "unrecognized";
+    badge.title =
+      "Taskwarrior does not know this key, so setting it has no effect. It is usually a typo or a setting that never existed.";
     values.append(badge);
   }
 
@@ -211,6 +229,15 @@ export function settingsView(): View {
         );
 
         const fragment = document.createDocumentFragment();
+        if (config.unrecognizedKeys?.length) {
+          const keys = config.unrecognizedKeys;
+          fragment.append(
+            notice(
+              `${keys.length} rc ${keys.length === 1 ? "entry is" : "entries are"} not recognised by Taskwarrior.`,
+              `${keys.join(", ")} — setting these has no effect. Taskwarrior reports them as unrecognized variables.`,
+            ),
+          );
+        }
         if (config.unresolvedIncludes?.length) {
           fragment.append(
             notice(

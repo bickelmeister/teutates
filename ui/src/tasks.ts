@@ -179,6 +179,12 @@ export function tasksView(): View {
         if (counts.overdue > 0) parts.push(`${counts.overdue} overdue`);
         if (counts.active > 0) parts.push(`${counts.active} active`);
         parts.push(`${counts.pending} pending`, `${counts.completed} completed`);
+        // Naming the report makes it checkable against `task list` instead of
+        // leaving the reader to guess why the order looks the way it does.
+        parts.push(`sorted by report.${list.sort.report}.sort (${list.sort.spec})`);
+        if (list.sort.unsupported?.length) {
+          parts.push(`ignored: ${list.sort.unsupported.join(", ")}`);
+        }
         context.meta.textContent = parts.join(" · ");
       }
 

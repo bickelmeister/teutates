@@ -20,6 +20,22 @@ const fixture: Config = {
   ],
 };
 
+const withUnrecognized: Config = {
+  ...fixture,
+  unrecognizedKeys: ["sort"],
+  settings: [
+    ...fixture.settings,
+    {
+      key: "sort",
+      value: "priority-,due+",
+      group: "general",
+      source: "taskrc",
+      isOverride: true,
+      unrecognized: true,
+    },
+  ],
+};
+
 let harness: Harness;
 
 function keys(): (string | null | undefined)[] {
@@ -134,5 +150,47 @@ describe("settings view navigation", () => {
 
     assert.equal(scrolled, "group-general");
     assert.equal(harness.dom.window.location.hash, "#/settings");
+  });
+});
+
+describe("settings view unrecognized keys", () => {
+  before(async () => {
+    harness = createHarness();
+    stubFetch(withUnrecognized);
+    await mount(harness, settingsView());
+  });
+  after(() => harness.close());
+
+  // A key Taskwarrior does not know has no effect, which the reader cannot
+  // tell from the value alone.
+  test("marks the row and says why", () => {
+    const row = harness
+      .rows("data-setting")
+      .find((candidate) => candidate.firstElementChild?.textContent === "sort");
+    assert.ok(row, "sort row missing");
+    assert.ok(row.className.includes("border-l-warn"));
+    assert.match(row.textContent ?? "", /unrecognized/);
+  });
+
+  test("an unrecognized key outranks its origin styling", () => {
+    const row = harness
+      .rows("data-setting")
+      .find((candidate) => candidate.firstElementChild?.textContent === "sort");
+    // It is set in the taskrc, but the accent treatment would read as
+    // "deliberately changed" rather than "does nothing".
+    assert.ok(!row?.className.includes("border-l-accent"));
+  });
+
+  test("summarises the problem above the list", () => {
+    assert.match(harness.text("content"), /not recognised by Taskwarrior/);
+    assert.match(harness.text("content"), /setting these has no effect/);
+  });
+
+  test("a clean configuration shows no warning", async () => {
+    const clean = createHarness();
+    stubFetch(fixture);
+    await mount(clean, settingsView());
+    assert.doesNotMatch(clean.text("content"), /not recognised/);
+    clean.close();
   });
 });

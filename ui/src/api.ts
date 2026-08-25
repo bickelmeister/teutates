@@ -8,6 +8,8 @@ export interface Setting {
   /** "default", "taskrc", or "include:<file>". */
   source: string;
   isOverride: boolean;
+  /** Present in the rc files but unknown to Taskwarrior, so it has no effect. */
+  unrecognized?: boolean;
 }
 
 export interface Group {
@@ -21,6 +23,7 @@ export interface Config {
   groups: Group[];
   settings: Setting[];
   unresolvedIncludes?: string[];
+  unrecognizedKeys?: string[];
 }
 
 export interface ApiError {
@@ -82,8 +85,19 @@ export interface Counts {
 
 export type StatusFilter = "pending" | "completed" | "all";
 
+/** The Taskwarrior report order the list follows. */
+export interface SortSpec {
+  /** Report the order was taken from, e.g. "list". */
+  report: string;
+  /** Raw configuration value, e.g. "start-,due+,project+,urgency-". */
+  spec: string;
+  /** Attributes the backend cannot sort by; they were skipped. */
+  unsupported?: string[];
+}
+
 export interface TaskList {
   status: StatusFilter;
+  sort: SortSpec;
   counts: Counts;
   tasks: Task[];
   udaLabels?: Record<string, string>;
