@@ -38,6 +38,9 @@ type Setting struct {
 	// the main rc file, or "include:<name>" for values from an included file.
 	Source     string `json:"source"`
 	IsOverride bool   `json:"isOverride"`
+	// Unrecognized marks a key that is present in the rc files but that
+	// Taskwarrior does not know, so setting it has no effect.
+	Unrecognized bool `json:"unrecognized,omitempty"`
 }
 
 // Group is a namespace of settings, derived from the key prefix.
@@ -55,6 +58,9 @@ type Config struct {
 	// UnresolvedIncludes lists `include` directives whose target file could
 	// not be located. Values from those files still appear, but as defaults.
 	UnresolvedIncludes []string `json:"unresolvedIncludes,omitempty"`
+	// UnrecognizedKeys lists rc entries Taskwarrior does not know. They are
+	// almost always typos or settings that never existed.
+	UnrecognizedKeys []string `json:"unrecognizedKeys,omitempty"`
 }
 
 // generalGroup collects keys that carry no dotted prefix.
@@ -131,7 +137,12 @@ func groupOf(key string) string {
 
 // build merges the effective configuration with the origins parsed from the
 // rc files into the payload served to the UI.
-func build(effective map[string]string, origins map[string]origin, taskrcPath, version string, unresolved []string) *Config {
+func build(effective map[string]string, origins map[string]origin, taskrcPath, version string, unresolved, unrecognized []string) *Config {
+	unknown := make(map[string]bool, len(unrecognized))
+	for _, key := range unrecognized {
+		unknown[key] = true
+	}
+
 	settings := make([]Setting, 0, len(effective))
 	counts := make(map[string]int)
 
@@ -152,6 +163,7 @@ func build(effective map[string]string, origins map[string]origin, taskrcPath, v
 				setting.ConfiguredValue = o.value
 			}
 		}
+		setting.Unrecognized = unknown[key]
 		settings = append(settings, setting)
 	}
 
@@ -174,6 +186,7 @@ func build(effective map[string]string, origins map[string]origin, taskrcPath, v
 		Groups:             groups,
 		Settings:           settings,
 		UnresolvedIncludes: unresolved,
+		UnrecognizedKeys:   unrecognized,
 	}
 }
 
