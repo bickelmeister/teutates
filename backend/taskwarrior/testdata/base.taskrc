@@ -1,0 +1,9 @@
+# A comment line
+data.location=/home/user/.task
+
+include colors.theme
+color=on
+sort = priority-,due+
+uda.pom.type=numeric
+includes.notadirective=1
+include /nonexistent/missing.theme
