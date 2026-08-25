@@ -84,3 +84,60 @@ func load(ctx context.Context, rcPath string) (*Config, error) {
 
 	return build(effective, origins, rcPath, version, unresolved), nil
 }
+
+// Tasks returns the tasks matching the given status filter.
+//
+// Unlike the configuration, tasks change while the server runs, so this is
+// read fresh on every request; `task export` on a normal task list is fast
+// enough that caching would trade correctness for nothing.
+func (s *Service) Tasks(ctx context.Context, filter StatusFilter) (*TaskList, error) {
+	// rc.verbose=nothing keeps informational banners such as the release
+	// note out of stdout, which would otherwise not be valid JSON.
+	args := append([]string{"rc.verbose=nothing"}, filter.args()...)
+	args = append(args, "export")
+
+	output, err := runTask(ctx, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	tasks, err := parseTasks([]byte(output))
+	if err != nil {
+		return nil, err
+	}
+	sortTasks(tasks)
+
+	list := &TaskList{
+		Status: filter,
+		Counts: countTasks(tasks, time.Now()),
+		Tasks:  tasks,
+	}
+
+	// UDA labels come from the configuration, which is cached separately.
+	// Missing labels are not worth failing the request over.
+	if config, err := s.Config(ctx); err == nil {
+		list.UDALabels = udaLabels(config)
+	}
+
+	return list, nil
+}
+
+// udaLabels extracts `uda.<name>.label` entries from the configuration.
+func udaLabels(config *Config) map[string]string {
+	labels := make(map[string]string)
+	for _, setting := range config.Settings {
+		name, ok := strings.CutPrefix(setting.Key, "uda.")
+		if !ok {
+			continue
+		}
+		name, ok = strings.CutSuffix(name, ".label")
+		if !ok || name == "" || setting.Value == "" {
+			continue
+		}
+		labels[name] = setting.Value
+	}
+	if len(labels) == 0 {
+		return nil
+	}
+	return labels
+}

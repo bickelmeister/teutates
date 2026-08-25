@@ -25,8 +25,9 @@ func main() {
 	router := gin.New()
 	router.Use(gin.Logger(), gin.Recovery())
 
-	configHandler := handlers.NewConfigHandler(taskwarrior.NewService())
-	router.GET("/api/config", configHandler.Get)
+	service := taskwarrior.NewService()
+	router.GET("/api/config", handlers.NewConfigHandler(service).Get)
+	router.GET("/api/tasks", handlers.NewTasksHandler(service).List)
 
 	router.StaticFile("/", filepath.Join(*uiDir, "index.html"))
 	router.Static("/assets", filepath.Join(*uiDir, "assets"))
