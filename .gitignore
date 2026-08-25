@@ -12,7 +12,7 @@ dist/
 .go/
 
 # Dependency
-go.sum
+# go.sum is intentionally committed: it pins module checksums.
 vendor/
 
 # IDE
@@ -31,8 +31,9 @@ yarn-error.log*
 dist/
 build/
 
-# Tailwind CSS
-frontend/styles.css
+# Generated UI bundle
+ui/assets/
+ui/.test-build/
 
 # Environment
 .env
