@@ -82,7 +82,15 @@ func load(ctx context.Context, rcPath string) (*Config, error) {
 		unresolved = nil
 	}
 
-	return build(effective, origins, rcPath, version, unresolved), nil
+	// Only `task show` knows which keys Taskwarrior recognises, and it
+	// reports them in a footnote. rc.verbose is forced so the footnote does
+	// not depend on the user's own verbosity setting.
+	var unrecognized []string
+	if out, err := runTask(ctx, "rc.verbose=footnote", "show"); err == nil {
+		unrecognized = parseUnrecognized(out)
+	}
+
+	return build(effective, origins, rcPath, version, unresolved, unrecognized), nil
 }
 
 // Tasks returns the tasks matching the given status filter.
@@ -105,17 +113,30 @@ func (s *Service) Tasks(ctx context.Context, filter StatusFilter) (*TaskList, er
 	if err != nil {
 		return nil, err
 	}
-	sortTasks(tasks)
+
+	// The configuration supplies both the sort order and the UDA labels. It
+	// is cached separately, and neither is worth failing the request over:
+	// without it the list still renders, in the default order.
+	config, configErr := s.Config(ctx)
+
+	spec := sortSpecFor(nil)
+	if configErr == nil {
+		spec = sortSpecFor(config)
+	}
+	keys, unsupported := parseSortSpec(spec)
+	sortTasksBy(tasks, keys)
 
 	list := &TaskList{
 		Status: filter,
 		Counts: countTasks(tasks, time.Now()),
 		Tasks:  tasks,
+		Sort: SortSpec{
+			Report:      sortReport,
+			Spec:        spec,
+			Unsupported: unsupported,
+		},
 	}
-
-	// UDA labels come from the configuration, which is cached separately.
-	// Missing labels are not worth failing the request over.
-	if config, err := s.Config(ctx); err == nil {
+	if configErr == nil {
 		list.UDALabels = udaLabels(config)
 	}
 
