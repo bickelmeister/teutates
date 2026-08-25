@@ -15,7 +15,7 @@ This project provides a modern UI for managing Taskwarrior tasks. It talks to yo
 - **Language**: Go
 - **Framework**: [Gin](https://gin-gonic.com/) (lightweight HTTP framework)
 - **Data access**: The `task` CLI, invoked with fixed arguments and a timeout
-- **Deployment**: Single binary, binds to `127.0.0.1` by default
+- **Deployment**: Single binary with the interface embedded, binds to `127.0.0.1` by default
 
 ### Frontend
 - **Markup**: Plain HTML5
@@ -29,6 +29,7 @@ This project provides a modern UI for managing Taskwarrior tasks. It talks to yo
 teutates/
 ├── backend/
 │   ├── main.go                 # Gin server, static UI, flags
+│   ├── webui/                  # UI build output, embedded via go:embed
 │   ├── handlers/
 │   │   ├── config.go           # GET /api/config
 │   │   └── tasks.go            # GET /api/tasks
@@ -54,8 +55,7 @@ teutates/
 │   │   ├── ui.ts               # shared notice / segmented control
 │   │   ├── api.ts              # typed client for /api
 │   │   └── input.css           # Tailwind + theme tokens
-│   ├── test/                   # headless DOM tests (jsdom)
-│   └── assets/                 # build output, not committed
+│   └── test/                   # headless DOM tests (jsdom)
 └── README.md
 ```
 
@@ -69,7 +69,9 @@ teutates/
 ### Install and run
 
 There is **one process**. The frontend is not a server: `npm run build` writes
-static files into `ui/assets/`, which the Go binary serves.
+static files into `backend/webui/`, which are compiled into the binary with
+`go:embed`. The resulting binary runs on its own — nothing needs to sit next
+to it on disk.
 
 ```bash
 git clone <repo>
@@ -111,34 +113,39 @@ lsof -ti:8080 | xargs kill
 | Changed | Needed |
 |---------|--------|
 | `backend/**.go` | Stop the server and start it again |
-| `ui/src/**` | `npm run build`, then reload the page — **no** server restart |
-| `ui/index.html` | Reload the page |
+| `ui/**` | `npm run build`, then restart the server — the assets are embedded |
 
-A running server does not pick up Go changes: `go run` compiles once at
-startup. Assets, by contrast, are read from disk per request, so a UI rebuild
-needs no restart.
+A running server picks up neither: `go run` compiles once at startup, and the
+interface is baked into that binary.
 
-While working on the frontend, `npm run watch:css` and `npm run watch:js` take
-the manual build step away. Both run in the foreground and stop with Ctrl+C.
+While working on the frontend that round trip is tedious, so pass `-ui` to
+serve the files from disk instead. They are then read per request and a reload
+is enough:
+
+```bash
+cd backend && go run . -ui webui
+```
+
+With `npm run watch:css` and `npm run watch:js` running alongside, a saved file
+is on screen after a reload. Both watchers run in the foreground and stop with
+Ctrl+C.
 
 ### Building a binary
 
 ```bash
-cd backend && go build -o ../bin/teutates . && ../bin/teutates
+cd ui && npm run build            # must run first — the output is embedded
+cd ../backend && go build -o ../bin/teutates . && ../bin/teutates
 ```
 
-One process instead of two, and a faster start.
+One process instead of two, a faster start, and a single file that can be
+copied anywhere and run from any directory.
 
 ### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-addr` | `127.0.0.1:8080` | Listen address. teutates has no authentication — only change this if you know what you are exposing. |
-| `-ui` | `<parent of the working directory>/ui` | Directory containing `index.html` and `assets/`. |
-
-The default for `-ui` assumes the server is started from `backend/`. Started
-from the repository root it resolves *outside* the repository, and the API
-answers while the page returns 404 — pass `-ui ui` in that case.
+| `-ui` | *(empty — use the embedded copy)* | Serve the interface from this directory instead, so it can be rebuilt without rebuilding the binary. |
 
 ### Tests
 

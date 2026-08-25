@@ -59,11 +59,27 @@ func TestUnknownNonAPIPathPointsAtTheInterface(t *testing.T) {
 	if recorder.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", recorder.Code)
 	}
-	if strings.Contains(body.Hint, "restart") {
-		t.Errorf("a static path should not suggest a server restart: %q", body.Hint)
-	}
+	// The interface is embedded in the binary, so a rebuilt UI reaches the
+	// reader only after the server is rebuilt and restarted.
 	if !strings.Contains(body.Hint, "npm run build") {
 		t.Errorf("Hint = %q, want the build step", body.Hint)
+	}
+	if strings.Contains(body.Hint, "endpoint") {
+		t.Errorf("a static path should not talk about API endpoints: %q", body.Hint)
+	}
+}
+
+// The two 404 causes get different advice: a missing route is not a missing
+// build, and vice versa.
+func TestNotFoundHintsDifferByKind(t *testing.T) {
+	_, api := do(t, http.MethodGet, "/api/nope")
+	_, static := do(t, http.MethodGet, "/assets/missing.js")
+
+	if api.Hint == static.Hint {
+		t.Fatalf("both hints are %q", api.Hint)
+	}
+	if !strings.Contains(api.Hint, "routes") {
+		t.Errorf("api hint = %q, want it to mention routes", api.Hint)
 	}
 }
 
