@@ -10,7 +10,7 @@
     "watch:css": "tailwindcss -i src/input.css -o assets/styles.css --watch",
     "watch:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=assets/app.js --watch",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild test/ui.test.ts --bundle --platform=node --format=esm --packages=external --outfile=.test-build/ui.test.mjs && node --test .test-build/ui.test.mjs"
+    "test": "esbuild test/*.test.ts --bundle --platform=node --format=esm --packages=external --outdir=.test-build && node --test .test-build/*.js"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.14",

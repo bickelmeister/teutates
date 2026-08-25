@@ -1,17 +1,11 @@
 import type { Config, Setting } from "./api";
 import { ConfigError, fetchConfig } from "./api";
+import { copyToClipboard, notice } from "./ui";
+import type { View, ViewContext } from "./view";
 
 interface Filters {
   query: string;
   onlyChanged: boolean;
-}
-
-interface Elements {
-  content: HTMLElement;
-  groupNav: HTMLElement;
-  meta: HTMLElement;
-  search: HTMLInputElement;
-  onlyChanged: HTMLInputElement;
 }
 
 /** Values written by hand in the rc file, as opposed to pulled in by a theme. */
@@ -33,18 +27,6 @@ function matches(setting: Setting, filters: Filters): boolean {
     setting.key.toLowerCase().includes(needle) ||
     setting.value.toLowerCase().includes(needle)
   );
-}
-
-/** Copies `key=value` and briefly confirms it on the row itself. */
-async function copySetting(setting: Setting, row: HTMLElement): Promise<void> {
-  const text = `${setting.key}=${setting.value}`;
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    return; // Clipboard access can be denied; the row simply does nothing.
-  }
-  row.dataset["copied"] = "true";
-  window.setTimeout(() => delete row.dataset["copied"], 900);
 }
 
 function renderRow(setting: Setting): HTMLElement {
@@ -92,16 +74,14 @@ function renderRow(setting: Setting): HTMLElement {
     const badge = document.createElement("span");
     badge.className =
       "mt-1 inline-block rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide " +
-      (isUserSet(setting)
-        ? "bg-accent-soft text-accent"
-        : "bg-raised text-muted");
+      (isUserSet(setting) ? "bg-accent-soft text-accent" : "bg-raised text-muted");
     badge.textContent = sourceLabel(setting);
     values.append(badge);
   }
 
   row.append(key, values);
 
-  const copy = () => void copySetting(setting, row);
+  const copy = () => void copyToClipboard(`${setting.key}=${setting.value}`, row);
   row.addEventListener("click", copy);
   row.addEventListener("keydown", (event) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -136,110 +116,118 @@ function renderSection(group: string, settings: Setting[]): HTMLElement {
   return section;
 }
 
-function renderNotice(title: string, detail?: string): HTMLElement {
-  const box = document.createElement("div");
-  box.className =
-    "rounded-lg border border-line bg-surface px-5 py-8 text-center";
-
-  const heading = document.createElement("p");
-  heading.className = "text-sm font-medium";
-  heading.textContent = title;
-  box.append(heading);
-
-  if (detail !== undefined) {
-    const body = document.createElement("p");
-    body.className = "mx-auto mt-1.5 max-w-md text-sm text-muted";
-    body.textContent = detail;
-    box.append(body);
-  }
-  return box;
-}
-
-function renderNav(elements: Elements, groups: string[]): void {
-  elements.groupNav.replaceChildren();
+function renderSubnav(subnav: HTMLElement, groups: string[]): void {
+  const list = document.createElement("ul");
+  list.className = "mt-1 ml-2.5 space-y-px border-l border-line pl-3";
   for (const group of groups) {
     const item = document.createElement("li");
     const link = document.createElement("a");
-    link.href = `#group-${group}`;
+    link.href = `#/settings`;
     link.className =
       "block truncate rounded px-2 py-1 text-xs text-muted hover:bg-raised hover:text-fg";
     link.textContent = group;
+    // The router owns the hash, so scrolling is done directly rather than
+    // through a fragment link that would trigger a navigation.
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      document
+        .getElementById(`group-${group}`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     item.append(link);
-    elements.groupNav.append(item);
+    list.append(item);
   }
+  subnav.replaceChildren(list);
 }
 
-/** Loads the configuration and wires the search and filter controls to it. */
-export async function initSettings(elements: Elements): Promise<void> {
-  elements.content.replaceChildren(renderNotice("Loading settings…"));
-
-  let config: Config;
-  try {
-    config = await fetchConfig();
-  } catch (error) {
-    const message =
-      error instanceof ConfigError ? error.message : "Unexpected error.";
-    const hint = error instanceof ConfigError ? error.hint : undefined;
-    elements.content.replaceChildren(renderNotice(message, hint));
-    return;
+/** Groups an already grouped-and-sorted list in a single pass. */
+function sectionsOf(settings: Setting[]): Array<[string, Setting[]]> {
+  const sections: Array<[string, Setting[]]> = [];
+  for (const setting of settings) {
+    const last = sections.at(-1);
+    if (last !== undefined && last[0] === setting.group) last[1].push(setting);
+    else sections.push([setting.group, [setting]]);
   }
+  return sections;
+}
 
-  const changed = config.settings.filter((setting) => setting.isOverride).length;
-  elements.meta.textContent = `Taskwarrior ${config.taskVersion} · ${config.settings.length} settings, ${changed} changed · ${config.taskrcPath}`;
+export function settingsView(): View {
+  return {
+    title: "Settings",
+    searchPlaceholder: "Filter keys and values…",
 
-  function render(): void {
-    const filters: Filters = {
-      query: elements.search.value.trim(),
-      onlyChanged: elements.onlyChanged.checked,
-    };
+    async mount(context: ViewContext): Promise<void> {
+      const toggle = document.createElement("label");
+      toggle.className =
+        "flex cursor-pointer select-none items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm text-muted has-checked:border-accent has-checked:text-fg";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = "only-changed";
+      checkbox.className = "accent-accent";
+      toggle.append(checkbox, document.createTextNode("Changed only"));
+      context.controls.append(toggle);
 
-    const visible = config.settings.filter((setting) =>
-      matches(setting, filters),
-    );
+      context.content.replaceChildren(notice("Loading settings…"));
 
-    if (visible.length === 0) {
-      elements.groupNav.replaceChildren();
-      elements.content.replaceChildren(
-        renderNotice(
-          "No settings match this filter.",
-          filters.query === ""
-            ? "Every setting is at its Taskwarrior default."
-            : `Nothing matches “${filters.query}”.`,
-        ),
-      );
-      return;
-    }
+      let config: Config;
+      try {
+        config = await fetchConfig(context.signal);
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        const message =
+          error instanceof ConfigError ? error.message : "Unexpected error.";
+        const hint = error instanceof ConfigError ? error.hint : undefined;
+        context.content.replaceChildren(notice(message, hint));
+        return;
+      }
 
-    // Settings arrive grouped and sorted from the backend, so a single pass
-    // preserves that order without re-sorting in the browser.
-    const sections: Array<[string, Setting[]]> = [];
-    for (const setting of visible) {
-      const last = sections.at(-1);
-      if (last !== undefined && last[0] === setting.group) last[1].push(setting);
-      else sections.push([setting.group, [setting]]);
-    }
+      const changed = config.settings.filter((setting) => setting.isOverride).length;
+      context.meta.textContent = `Taskwarrior ${config.taskVersion} · ${config.settings.length} settings, ${changed} changed · ${config.taskrcPath}`;
 
-    renderNav(
-      elements,
-      sections.map(([group]) => group),
-    );
+      function render(): void {
+        const filters: Filters = {
+          query: context.search.value.trim(),
+          onlyChanged: checkbox.checked,
+        };
+        const visible = config.settings.filter((setting) => matches(setting, filters));
 
-    const fragment = document.createDocumentFragment();
-    if (config.unresolvedIncludes?.length) {
-      fragment.append(
-        renderNotice(
-          "Some included rc files could not be found.",
-          `Values from ${config.unresolvedIncludes.join(", ")} are shown as defaults.`,
-        ),
-      );
-    }
-    for (const [group, settings] of sections) {
-      fragment.append(renderSection(group, settings));
-    }
-    elements.content.replaceChildren(fragment);
-  }
+        if (visible.length === 0) {
+          context.subnav.replaceChildren();
+          context.content.replaceChildren(
+            notice(
+              "No settings match this filter.",
+              filters.query === ""
+                ? "Every setting is at its Taskwarrior default."
+                : `Nothing matches “${filters.query}”.`,
+            ),
+          );
+          return;
+        }
 
-  elements.search.addEventListener("input", render);
-  elements.onlyChanged.addEventListener("change", render);
-  render();
+        const sections = sectionsOf(visible);
+        renderSubnav(
+          context.subnav,
+          sections.map(([group]) => group),
+        );
+
+        const fragment = document.createDocumentFragment();
+        if (config.unresolvedIncludes?.length) {
+          fragment.append(
+            notice(
+              "Some included rc files could not be found.",
+              `Values from ${config.unresolvedIncludes.join(", ")} are shown as defaults.`,
+            ),
+          );
+        }
+        for (const [group, settings] of sections) {
+          fragment.append(renderSection(group, settings));
+        }
+        context.content.replaceChildren(fragment);
+      }
+
+      context.search.addEventListener("input", render, { signal: context.signal });
+      checkbox.addEventListener("change", render, { signal: context.signal });
+      render();
+    },
+  };
 }

@@ -1,27 +1,41 @@
-import { initSettings } from "./settings";
+import { startRouter } from "./router";
+import { settingsView } from "./settings";
+import { tasksView } from "./tasks";
 import { initTheme } from "./theme";
 
-function require<T extends Element>(id: string): T {
-  const element = document.getElementById(id);
-  if (element === null) throw new Error(`missing element #${id}`);
-  return element as unknown as T;
+function element<T>(id: string): T {
+  const found = document.getElementById(id);
+  if (found === null) throw new Error(`missing element #${id}`);
+  return found as unknown as T;
 }
 
-initTheme(require<HTMLElement>("theme-switch"));
+initTheme(element<HTMLElement>("theme-switch"));
 
-void initSettings({
-  content: require<HTMLElement>("content"),
-  groupNav: require<HTMLElement>("group-nav"),
-  meta: require<HTMLElement>("meta"),
-  search: require<HTMLInputElement>("search"),
-  onlyChanged: require<HTMLInputElement>("only-changed"),
-});
+const search = element<HTMLInputElement>("search");
+
+startRouter(
+  {
+    content: element<HTMLElement>("content"),
+    title: element<HTMLElement>("view-title"),
+    meta: element<HTMLElement>("meta"),
+    controls: element<HTMLElement>("view-controls"),
+    subnav: element<HTMLElement>("subnav"),
+    search,
+  },
+  [
+    { path: "/tasks", label: "Tasks", view: tasksView },
+    { path: "/settings", label: "Settings", view: settingsView },
+  ],
+  new Map([
+    ["/tasks", element<HTMLElement>("nav-tasks")],
+    ["/settings", element<HTMLElement>("nav-settings")],
+  ]),
+);
 
 // Focus the filter with "/" the way a terminal user would expect.
 document.addEventListener("keydown", (event) => {
   if (event.key !== "/" || event.metaKey || event.ctrlKey) return;
-  const active = document.activeElement;
-  if (active instanceof HTMLInputElement) return;
+  if (document.activeElement instanceof HTMLInputElement) return;
   event.preventDefault();
-  require<HTMLInputElement>("search").focus();
+  search.focus();
 });
