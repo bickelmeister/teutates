@@ -62,36 +62,83 @@ teutates/
 ## Getting Started
 
 ### Prerequisites
-- Go 1.21+
-- Node.js 18+ (for Tailwind CSS)
-- Taskwarrior installed and initialized
+- Go 1.27+ (the version `backend/go.mod` declares)
+- Node.js 18+ (to build the stylesheet and the bundle)
+- Taskwarrior 3.x, installed and initialised
 
-### Installation
+### Install and run
+
+There is **one process**. The frontend is not a server: `npm run build` writes
+static files into `ui/assets/`, which the Go binary serves.
 
 ```bash
 git clone <repo>
 cd teutates
 
-# 1. Build the UI (the server serves ui/assets/)
+# 1. Build the UI once
 cd ui
 npm install
 npm run build
 
-# 2. Run the server
+# 2. Start the server (leave it in the foreground)
 cd ../backend
 go run .
-
-# Open http://127.0.0.1:8080
 ```
 
-During development, `npm run watch:css` and `npm run watch:js` rebuild on change.
+Then open <http://127.0.0.1:8080>.
+
+### Stopping the server
+
+**Press Ctrl+C in the terminal running `go run .`.** That is all it takes.
+
+`go run` compiles to a temporary binary and runs it as a *child* process, so
+two processes are involved. Ctrl+C signals the whole foreground process group
+and ends both.
+
+> **Do not kill the `go run` process by its pid.** The child keeps running and
+> holds the port, and the next start then fails with
+> `bind: address already in use` — while the old code carries on serving.
+
+If the terminal is gone or the server was started in the background, target the
+port rather than the process tree:
+
+```bash
+lsof -ti:8080 | xargs kill
+```
+
+### What needs rebuilding
+
+| Changed | Needed |
+|---------|--------|
+| `backend/**.go` | Stop the server and start it again |
+| `ui/src/**` | `npm run build`, then reload the page — **no** server restart |
+| `ui/index.html` | Reload the page |
+
+A running server does not pick up Go changes: `go run` compiles once at
+startup. Assets, by contrast, are read from disk per request, so a UI rebuild
+needs no restart.
+
+While working on the frontend, `npm run watch:css` and `npm run watch:js` take
+the manual build step away. Both run in the foreground and stop with Ctrl+C.
+
+### Building a binary
+
+```bash
+cd backend && go build -o ../bin/teutates . && ../bin/teutates
+```
+
+One process instead of two, and a faster start.
 
 ### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-addr` | `127.0.0.1:8080` | Listen address. teutates has no authentication — only change this if you know what you are exposing. |
-| `-ui` | `../ui` | Directory containing `index.html` and `assets/`. |
+| `-ui` | `<parent of the working directory>/ui` | Directory containing `index.html` and `assets/`. |
+
+The default for `-ui` assumes the server is started from `backend/`. Started
+from the repository root it resolves *outside* the repository, and the API
+answers while the page returns 404 — pass `-ui ui` in that case.
 
 ### Tests
 
