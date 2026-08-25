@@ -126,28 +126,6 @@ func TestCompletedTasksHaveNoWorkingID(t *testing.T) {
 	}
 }
 
-func TestSortTasksByUrgencyDescending(t *testing.T) {
-	tasks := parseFixture(t)
-	sortTasks(tasks)
-	var urgencies []float64
-	for _, task := range tasks {
-		urgencies = append(urgencies, task.Urgency)
-	}
-	for i := 1; i < len(urgencies); i++ {
-		if urgencies[i-1] < urgencies[i] {
-			t.Fatalf("not sorted descending: %v", urgencies)
-		}
-	}
-}
-
-func TestSortTasksIsStableForEqualUrgency(t *testing.T) {
-	tasks := []Task{{UUID: "b", Urgency: 5}, {UUID: "a", Urgency: 5}}
-	sortTasks(tasks)
-	if tasks[0].UUID != "a" {
-		t.Errorf("ties should break on uuid, got %s first", tasks[0].UUID)
-	}
-}
-
 func TestCountTasks(t *testing.T) {
 	tasks := parseFixture(t)
 	// Between the fixture's two due dates, so exactly one is overdue.

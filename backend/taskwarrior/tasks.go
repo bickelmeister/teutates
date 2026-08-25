@@ -3,7 +3,6 @@ package taskwarrior
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 )
@@ -88,6 +87,8 @@ type TaskList struct {
 	Status StatusFilter `json:"status"`
 	Counts Counts       `json:"counts"`
 	Tasks  []Task       `json:"tasks"`
+	// Sort records the order applied, so the UI can name it.
+	Sort SortSpec `json:"sort"`
 	// UDALabels maps a UDA name to its configured human-readable label.
 	UDALabels map[string]string `json:"udaLabels,omitempty"`
 }
@@ -220,15 +221,4 @@ func countTasks(tasks []Task, now time.Time) Counts {
 		}
 	}
 	return counts
-}
-
-// sortTasks orders by urgency, matching what `task list` shows first. UUID
-// breaks ties so the order is stable across requests.
-func sortTasks(tasks []Task) {
-	sort.SliceStable(tasks, func(i, j int) bool {
-		if tasks[i].Urgency != tasks[j].Urgency {
-			return tasks[i].Urgency > tasks[j].Urgency
-		}
-		return tasks[i].UUID < tasks[j].UUID
-	})
 }
