@@ -35,18 +35,19 @@
 
         <div class="flex-1 overflow-y-auto px-3 pb-4">
           <a
-            href="#tasks"
-            class="block rounded-md px-2.5 py-1.5 text-sm text-muted hover:bg-raised hover:text-fg"
+            id="nav-tasks"
+            href="#/tasks"
+            class="block rounded-md px-2.5 py-1.5 text-sm hover:bg-raised hover:text-fg"
             >Tasks</a
           >
           <a
-            href="#settings"
-            aria-current="page"
-            class="mt-0.5 block rounded-md bg-raised px-2.5 py-1.5 text-sm font-medium"
+            id="nav-settings"
+            href="#/settings"
+            class="mt-0.5 block rounded-md px-2.5 py-1.5 text-sm hover:bg-raised hover:text-fg"
             >Settings</a
           >
-          <!-- Submenu: one entry per settings group, filled in by the app. -->
-          <ul id="group-nav" class="mt-1 space-y-px border-l border-line pl-3 ml-2.5"></ul>
+          <!-- Filled by the active view; the settings view lists its groups here. -->
+          <div id="subnav"></div>
         </div>
 
         <div class="border-t border-line p-3">
@@ -65,7 +66,7 @@
           class="sticky top-0 z-10 border-b border-line bg-bg/85 px-6 py-4 backdrop-blur-sm md:px-8"
         >
           <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h1 class="text-base font-semibold tracking-tight">Settings</h1>
+            <h1 id="view-title" class="text-base font-semibold tracking-tight"></h1>
             <p id="meta" class="text-xs text-muted"></p>
           </div>
 
@@ -73,18 +74,13 @@
             <input
               id="search"
               type="search"
-              placeholder="Filter keys and values…"
               autocomplete="off"
               spellcheck="false"
               aria-label="Filter settings"
               class="min-w-0 flex-1 rounded-md border border-line bg-surface px-3 py-1.5 text-sm placeholder:text-muted focus:border-accent focus:outline-none"
             />
-            <label
-              class="flex cursor-pointer select-none items-center gap-2 rounded-md border border-line px-3 py-1.5 text-sm text-muted has-checked:border-accent has-checked:text-fg"
-            >
-              <input id="only-changed" type="checkbox" class="accent-accent" />
-              Changed only
-            </label>
+            <!-- Filled by the active view with its own controls. -->
+            <div id="view-controls" class="flex items-center gap-2"></div>
           </div>
         </header>
 
