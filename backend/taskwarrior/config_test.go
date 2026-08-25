@@ -89,7 +89,7 @@ func TestBuildMarksOriginsAndDivergence(t *testing.T) {
 		"color.due": {source: "include:colors.theme", value: "red"},
 	}
 
-	config := build(effective, origins, "/home/user/.taskrc", "3.5.0", nil)
+	config := build(effective, origins, "/home/user/.taskrc", "3.5.0", nil, nil)
 
 	byKey := make(map[string]Setting, len(config.Settings))
 	for _, setting := range config.Settings {
@@ -126,7 +126,7 @@ func TestBuildSortsSettingsByGroupThenKey(t *testing.T) {
 		"color.active": "blue",
 		"zebra":        "1",
 		"alias.rm":     "delete",
-	}, nil, "", "", nil)
+	}, nil, "", "", nil, nil)
 
 	var keys []string
 	for _, setting := range config.Settings {
@@ -143,5 +143,30 @@ func TestBuildSortsSettingsByGroupThenKey(t *testing.T) {
 func TestParseVersion(t *testing.T) {
 	if got := parseVersion("3.5.0\n\nsome trailing notice\n"); got != "3.5.0" {
 		t.Errorf("parseVersion = %q, want 3.5.0", got)
+	}
+}
+
+// A key present in the rc file but unknown to Taskwarrior has no effect, so
+// the UI needs to be able to say so.
+func TestBuildMarksUnrecognizedKeys(t *testing.T) {
+	config := build(
+		map[string]string{"sort": "priority-,due+", "bulk": "3"},
+		map[string]origin{"sort": {source: "taskrc", value: "priority-,due+"}},
+		"/home/user/.taskrc", "3.5.0", nil, []string{"sort"},
+	)
+
+	byKey := make(map[string]Setting, len(config.Settings))
+	for _, setting := range config.Settings {
+		byKey[setting.Key] = setting
+	}
+
+	if !byKey["sort"].Unrecognized {
+		t.Error("sort should be marked unrecognized")
+	}
+	if byKey["bulk"].Unrecognized {
+		t.Error("bulk is a real setting and must not be marked")
+	}
+	if len(config.UnrecognizedKeys) != 1 || config.UnrecognizedKeys[0] != "sort" {
+		t.Errorf("UnrecognizedKeys = %v", config.UnrecognizedKeys)
 	}
 }
