@@ -15,6 +15,9 @@
   --line: #e5e5e1;
   --accent: #b8542a;
   --accent-soft: #fdf1eb;
+  /* Reserved for configuration that is wrong rather than merely changed. */
+  --warn: #8a6100;
+  --warn-soft: #fbf3e0;
 }
 
 .dark {
@@ -26,6 +29,8 @@
   --line: #2c2c2b;
   --accent: #e08a5c;
   --accent-soft: #2a1c14;
+  --warn: #d9a441;
+  --warn-soft: #2b2312;
 }
 
 @theme inline {
@@ -37,6 +42,8 @@
   --color-line: var(--line);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
 
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;

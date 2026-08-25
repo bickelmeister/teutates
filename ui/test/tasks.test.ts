@@ -21,6 +21,7 @@ const fixture: TaskList = {
     active: 1,
     overdue: 1,
   },
+  sort: { report: "list", spec: "start-,due+,project+,urgency-" },
   udaLabels: { pom: "Pomodoris" },
   tasks: [
     {
@@ -137,6 +138,14 @@ describe("tasks view", () => {
     assert.match(meta, /1 active/);
   });
 
+  // The order comes from the Taskwarrior configuration, so the view names it
+  // rather than leaving the reader to guess.
+  test("meta line names the report the order follows", () => {
+    const meta = harness.text("meta");
+    assert.match(meta, /report\.list\.sort/);
+    assert.match(meta, /start-,due\+,project\+,urgency-/);
+  });
+
   test("search matches description, project, tags and working id", () => {
     search(harness, "vertrag");
     assert.equal(rows().length, 1, "project and description both match");
@@ -213,5 +222,22 @@ describe("tasks view errors", () => {
     assert.match(harness.text("content"), /task` binary not found/);
     assert.match(harness.text("content"), /Install Taskwarrior\./);
     assert.equal(harness.text("meta"), "");
+  });
+});
+
+describe("tasks view sort reporting", () => {
+  before(() => {
+    harness = createHarness();
+  });
+  after(() => harness.close());
+
+  // A clause the backend had to skip changes the order, so it is stated.
+  test("names attributes that were ignored", async () => {
+    stubFetch({
+      ...fixture,
+      sort: { report: "list", spec: "depends+,urgency-", unsupported: ["depends"] },
+    });
+    await mount(harness, tasksView());
+    assert.match(harness.text("meta"), /ignored: depends/);
   });
 });

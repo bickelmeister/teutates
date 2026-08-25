@@ -36,6 +36,8 @@ teutates/
 │   │   ├── config.go           # `task _show` -> effective config
 │   │   ├── taskrc.go           # ~/.taskrc + includes -> value origins
 │   │   ├── tasks.go            # `task export` -> task list
+│   │   ├── sortspec.go         # report.<name>.sort -> ordering
+│   │   ├── unrecognized.go     # rc keys Taskwarrior does not know
 │   │   ├── decode.go           # tolerant decoding of export fields
 │   │   └── service.go          # caching, invalidated on rc mtime
 │   └── go.mod
@@ -101,7 +103,7 @@ cd ui && npm run typecheck && npm test
 ## Features
 
 - [x] View Taskwarrior settings (read-only), grouped, searchable, with overrides marked
-- [x] List tasks (read-only), sorted by urgency, filterable by status and text
+- [x] List tasks (read-only), ordered by `report.list.sort`, filterable by status and text
 - [ ] Create new task
 - [ ] Edit existing task
 - [ ] Mark task as done
@@ -124,6 +126,9 @@ cd ui && npm run typecheck && npm test
 
 Returns every effective setting reported by `task _show`, annotated with where
 the value comes from. `source` is `default`, `taskrc`, or `include:<file>`.
+Keys that Taskwarrior does not recognise — typos, or settings that never
+existed — are flagged with `unrecognized` and collected in `unrecognizedKeys`,
+since setting them has no effect.
 `configuredValue` appears only when the rc file states something different from
 what Taskwarrior resolves at runtime — `color` is the common case, since it
 falls back to `off` without a TTY.
@@ -148,9 +153,19 @@ falls back to `off` without a TTY.
 
 ### `GET /api/tasks`
 
-Returns the tasks from `task export`, sorted by urgency. `status` selects the
-set and accepts only `pending` (the default), `completed`, or `all`; anything
-else is rejected with `400` and never reaches the command line.
+Returns the tasks from `task export`, ordered the way `task list` orders them.
+`status` selects the set and accepts only `pending` (the default), `completed`,
+or `all`; anything else is rejected with `400` and never reaches the command
+line.
+
+The order follows `report.list.sort` from the configuration, so the interface
+and the command line agree about the same data. The applied specification is
+echoed back under `sort`, together with any clause teutates cannot sort by.
+
+> **There is no global `sort` setting in Taskwarrior.** Sorting is configured
+> per report (`report.<name>.sort`). A bare `sort` line in `.taskrc` is an
+> unrecognized variable and has no effect — Taskwarrior itself reports it, and
+> so does the settings view.
 
 Dates are converted from Taskwarrior's `20260831T215959Z` format to RFC 3339 so
 the browser can parse them. Attributes that are not part of the standard schema
@@ -174,7 +189,8 @@ installation and a fixed schema would drop them.
       "due": "2026-08-23T21:59:59Z",
       "udas": { "pom": "1" }
     }
-  ]
+  ],
+  "sort": { "report": "list", "spec": "start-,due+,project+,urgency-" }
 }
 ```
 
