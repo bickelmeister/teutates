@@ -3,7 +3,7 @@ import { after, before, describe, test } from "node:test";
 
 import type { TaskList } from "../src/api";
 import { tasksView } from "../src/tasks";
-import { click, createHarness, mount, search, stubFetch, type Harness } from "./harness";
+import { click, createHarness, fails, mount, search, serves, type Harness } from "./harness";
 
 const now = Date.now();
 const inDays = (days: number) =>
@@ -71,8 +71,7 @@ function columns(row: Element): (string | null)[] {
 describe("tasks view", () => {
   before(async () => {
     harness = createHarness();
-    stubFetch(fixture);
-    await mount(harness, tasksView());
+    await mount(harness, tasksView(serves(fixture)));
   });
   after(() => harness.close());
 
@@ -178,16 +177,12 @@ describe("tasks view status filter", () => {
 
   test("switching status refetches with the new filter", async () => {
     const requested: string[] = [];
-    globalThis.fetch = (async (input: string) => {
-      requested.push(String(input));
-      return new Response(JSON.stringify(fixture), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    }) as unknown as typeof fetch;
 
-    await mount(harness, tasksView());
-    assert.deepEqual(requested, ["/api/tasks?status=pending"]);
+    await mount(harness, tasksView(async (status) => {
+      requested.push(status);
+      return fixture;
+    }));
+    assert.deepEqual(requested, ["pending"]);
 
     const buttons = [
       ...harness.dom.window.document.querySelectorAll("#view-controls button"),
@@ -200,10 +195,7 @@ describe("tasks view status filter", () => {
     click(buttons[2] as Element);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.deepEqual(requested, [
-      "/api/tasks?status=pending",
-      "/api/tasks?status=all",
-    ]);
+    assert.deepEqual(requested, ["pending", "all"]);
     assert.equal(buttons[2]?.getAttribute("aria-checked"), "true");
     assert.equal(buttons[0]?.getAttribute("aria-checked"), "false");
   });
@@ -216,8 +208,7 @@ describe("tasks view errors", () => {
   after(() => harness.close());
 
   test("a backend failure renders the server's message and hint", async () => {
-    stubFetch({ error: "`task` binary not found", hint: "Install Taskwarrior." }, 503);
-    await mount(harness, tasksView());
+    await mount(harness, tasksView(fails("`task` binary not found", "Install Taskwarrior.")));
 
     assert.match(harness.text("content"), /task` binary not found/);
     assert.match(harness.text("content"), /Install Taskwarrior\./);
@@ -233,11 +224,10 @@ describe("tasks view sort reporting", () => {
 
   // A clause the backend had to skip changes the order, so it is stated.
   test("names attributes that were ignored", async () => {
-    stubFetch({
+    await mount(harness, tasksView(serves({
       ...fixture,
       sort: { report: "list", spec: "depends+,urgency-", unsupported: ["depends"] },
-    });
-    await mount(harness, tasksView());
+    })));
     assert.match(harness.text("meta"), /ignored: depends/);
   });
 });

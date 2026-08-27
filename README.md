@@ -11,37 +11,32 @@ This project provides a modern UI for managing Taskwarrior tasks. It talks to yo
 
 ## Tech Stack
 
-### Backend
-- **Language**: Go
-- **Framework**: [Gin](https://gin-gonic.com/) (lightweight HTTP framework)
-- **Data access**: The `task` CLI, invoked with fixed arguments and a timeout
-- **Deployment**: Single binary with the interface embedded, binds to `127.0.0.1` by default
+The interface is where teutates actually understands Taskwarrior. Parsing
+`task` output, resolving rc includes, applying the report's sort order and
+grouping settings all happen in the browser. The server exists only to do the
+two things a browser cannot: run the `task` binary and read files.
 
-### Frontend
+### Server
+- **Runtime**: Node.js, one file, no dependencies
+- **Modules**: `node:http`, `node:child_process`, `node:fs` — nothing else
+- **Data access**: The `task` CLI, invoked with an argument allowlist and a timeout
+- **Deployment**: `node server/teutates.mjs`, binds to `127.0.0.1` by default
+
+### Interface
 - **Markup**: Plain HTML5
 - **Styling**: [Tailwind CSS](https://tailwindcss.com/)
-- **Scripting**: TypeScript (or JavaScript)
-- **Architecture**: Server-driven HTML with progressive enhancement
+- **Scripting**: TypeScript, bundled with esbuild
+- **Architecture**: Hash-routed views over a typed Taskwarrior client
 
 ## Project Structure
 
 ```
 teutates/
-├── backend/
-│   ├── main.go                 # Gin server, static UI, flags
-│   ├── webui/                  # UI build output, embedded via go:embed
-│   ├── handlers/
-│   │   ├── config.go           # GET /api/config
-│   │   └── tasks.go            # GET /api/tasks
-│   ├── taskwarrior/
-│   │   ├── config.go           # `task _show` -> effective config
-│   │   ├── taskrc.go           # ~/.taskrc + includes -> value origins
-│   │   ├── tasks.go            # `task export` -> task list
-│   │   ├── sortspec.go         # report.<name>.sort -> ordering
-│   │   ├── unrecognized.go     # rc keys Taskwarrior does not know
-│   │   ├── decode.go           # tolerant decoding of export fields
-│   │   └── service.go          # caching, invalidated on rc mtime
-│   └── go.mod
+├── server/
+│   ├── teutates.mjs            # the whole server: exec, rc files, static UI
+│   ├── dev.mjs                 # watches everything, runs it as one process
+│   ├── dist/                   # built interface, served from disk
+│   └── test/server.test.mjs    # allowlist, path guard, request guards
 ├── ui/
 │   ├── index.html              # app shell, pre-paint theme bootstrap
 │   ├── src/
@@ -53,53 +48,52 @@ teutates/
 │   │   ├── theme.ts            # light / dark / system
 │   │   ├── format.ts           # relative dates, urgency
 │   │   ├── ui.ts               # shared notice / segmented control
-│   │   ├── api.ts              # typed client for /api
-│   │   └── input.css           # Tailwind + theme tokens
-│   └── test/                   # headless DOM tests (jsdom)
+│   │   ├── api.ts              # what the views read; re-exports taskwarrior/
+│   │   ├── input.css           # Tailwind + theme tokens
+│   │   └── taskwarrior/        # everything teutates knows about Taskwarrior
+│   │       ├── client.ts       # the three server calls, and their errors
+│   │       ├── config.ts       # `task _show` -> effective config
+│   │       ├── taskrc.ts       # ~/.taskrc + includes -> value origins
+│   │       ├── tasks.ts        # `task export` -> task list
+│   │       ├── sortspec.ts     # report.<name>.sort -> ordering
+│   │       ├── unrecognized.ts # rc keys Taskwarrior does not know
+│   │       └── service.ts      # caching, invalidated on rc mtime
+│   └── test/                   # headless DOM and domain tests
 └── README.md
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- Go 1.27+ (the version `backend/go.mod` declares)
-- Node.js 18+ (to build the stylesheet and the bundle)
+- Node.js 20+ (developed against v26)
 - Taskwarrior 3.x, installed and initialised
 
 ### Install and run
 
-There is **one process**. The frontend is not a server: `npm run build` writes
-static files into `backend/webui/`, which are compiled into the binary with
-`go:embed`. The resulting binary runs on its own — nothing needs to sit next
-to it on disk.
+There is **one process**, and it has no dependencies of its own. `npm run
+build` writes static files into `server/dist/`, which the server serves from
+disk.
 
 ```bash
 git clone <repo>
 cd teutates
 
-# 1. Build the UI once
+# 1. Build the interface once
 cd ui
 npm install
 npm run build
 
 # 2. Start the server (leave it in the foreground)
-cd ../backend
-go run .
+cd ..
+node server/teutates.mjs
 ```
 
 Then open <http://127.0.0.1:8080>.
 
 ### Stopping the server
 
-**Press Ctrl+C in the terminal running `go run .`.** That is all it takes.
-
-`go run` compiles to a temporary binary and runs it as a *child* process, so
-two processes are involved. Ctrl+C signals the whole foreground process group
-and ends both.
-
-> **Do not kill the `go run` process by its pid.** The child keeps running and
-> holds the port, and the next start then fails with
-> `bind: address already in use` — while the old code carries on serving.
+**Press Ctrl+C in the terminal running it.** There is a single process and no
+build step behind it, so that is all it takes.
 
 If the terminal is gone or the server was started in the background, target the
 port rather than the process tree:
@@ -108,51 +102,55 @@ port rather than the process tree:
 lsof -ti:8080 | xargs kill
 ```
 
-### What needs rebuilding
-
-| Changed | Needed |
-|---------|--------|
-| `backend/**.go` | Stop the server and start it again |
-| `ui/**` | `npm run build`, then restart the server — the assets are embedded |
-
-A running server picks up neither: `go run` compiles once at startup, and the
-interface is baked into that binary.
-
-While working on the frontend that round trip is tedious, so pass `-ui` to
-serve the files from disk instead. They are then read per request and a reload
-is enough:
+### Development
 
 ```bash
-cd backend && go run . -ui webui
+cd ui && npm run dev
 ```
 
-With `npm run watch:css` and `npm run watch:js` running alongside, a saved file
-is on screen after a reload. Both watchers run in the foreground and stop with
-Ctrl+C.
+One command, one foreground process. It watches everything a change can touch
+and stops all of it with Ctrl+C:
 
-### Building a binary
+| Changed | What happens |
+|---------|--------------|
+| `ui/src/**.ts` | esbuild rebuilds the bundle; reload the page |
+| `ui/src/input.css` | Tailwind rebuilds the stylesheet; reload the page |
+| `ui/index.html` | the app shell is copied into `server/dist`; reload the page |
+| `server/**.mjs` | the server restarts itself |
+
+The interface is read from disk per request, so nothing but a reload is needed
+after a rebuild — the server does not restart for it. Flags are passed through:
+`npm run dev -- --addr 127.0.0.1:9000`.
+
+Without the dev runner the same thing takes three terminals (`npm run
+watch:css`, `npm run watch:js`, `npm start`) and leaves `ui/index.html`
+unwatched, since `build:html` is a one-off copy.
+
+### Production build
 
 ```bash
-cd ui && npm run build            # must run first — the output is embedded
-cd ../backend && go build -o ../bin/teutates . && ../bin/teutates
+cd ui && npm run build
+node server/teutates.mjs
 ```
-
-One process instead of two, a faster start, and a single file that can be
-copied anywhere and run from any directory.
 
 ### Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-addr` | `127.0.0.1:8080` | Listen address. teutates has no authentication — only change this if you know what you are exposing. |
-| `-ui` | *(empty — use the embedded copy)* | Serve the interface from this directory instead, so it can be rebuilt without rebuilding the binary. |
+| `--addr` | `127.0.0.1:8080` | Listen address. teutates has no authentication — only change this if you know what you are exposing. |
+| `--ui` | `server/dist` | Serve the interface from this directory instead. |
 
 ### Tests
 
 ```bash
-cd backend && go test ./...
 cd ui && npm run typecheck && npm test
+node --test server/test/*.test.mjs
 ```
+
+The domain tests run the same code the browser runs, without a browser: they
+exercise the parsers and the sort order directly. The view tests render the
+real app shell in jsdom against fixtures. The server tests start the server on
+an ephemeral port with a stub `task` on the PATH.
 
 ## Features
 
@@ -165,56 +163,94 @@ cd ui && npm run typecheck && npm test
 - [ ] Filter by status/project/tags
 - [ ] Real-time updates
 
-## API Endpoints
+## API
+
+Three endpoints, none of which knows what Taskwarrior output means.
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/config` | Effective Taskwarrior configuration with value origins |
-| GET | `/api/tasks` | List tasks, filtered by status |
-| POST | `/api/tasks` | Create new task *(planned)* |
-| GET | `/api/tasks/:id` | Fetch single task *(planned)* |
-| PUT | `/api/tasks/:id` | Update task *(planned)* |
-| DELETE | `/api/tasks/:id` | Delete task *(planned)* |
+| POST | `/api/task` | Run `task` with an allowlisted argument list |
+| GET | `/api/rc` | Read one rc file, resolving it the way an include resolves |
+| GET | `/api/env` | Where the rc file is, when it last changed, where themes live |
 
-### `GET /api/config`
+### `POST /api/task`
 
-Returns every effective setting reported by `task _show`, annotated with where
-the value comes from. `source` is `default`, `taskrc`, or `include:<file>`.
-Keys that Taskwarrior does not recognise — typos, or settings that never
-existed — are flagged with `unrecognized` and collected in `unrecognizedKeys`,
-since setting them has no effect.
-`configuredValue` appears only when the rc file states something different from
-what Taskwarrior resolves at runtime — `color` is the common case, since it
-falls back to `off` without a TTY.
+```json
+→ { "args": ["rc.verbose=nothing", "status:pending", "export"] }
+← { "stdout": "[{…}]", "stderr": "", "code": 0 }
+```
+
+A non-zero exit is returned as an ordinary result rather than an error: `task
+add` rejecting a date is an answer the interface should show, not a transport
+failure. Only a missing binary (`503`) or a timeout (`504`) is.
+
+**The argument list is checked before anything runs.** Taskwarrior's command
+line is `task [filter] <command> [arguments]`, so the command is not simply the
+first word — the first argument naming a command teutates knows is taken to be
+the command, and everything around it is checked against what Taskwarrior would
+still read as syntax there.
+
+- The command must be one of `export`, `_show`, `show`, `_get`, `--version`,
+  `add`, `modify`, `done`, `start`, `stop`, `delete`, `annotate`, `denotate`,
+  `undo`.
+- `config`, `execute`, `import`, `synchronize`, `purge`, `edit` and `context`
+  are refused wherever Taskwarrior would read them as a command.
+- The only accepted overrides are `rc.verbose=` and `rc.confirmation=`.
+  `rc.hooks=` runs scripts and `rc.data.location=` picks a different database,
+  so both are refused — as is `rc:<file>`, which would replace the rc file
+  every other check is based on.
+
+Because this endpoint writes, it is also guarded against a page elsewhere
+posting to it: a JSON content type is required, so a browser must preflight the
+request and no CORS headers are sent; a cross-origin `Origin` is refused; and
+the `Host` header must name the loopback address the server answers on, which
+is what stops DNS rebinding.
+
+### `GET /api/rc?path=&base=`
+
+Returns `{ "path": "…", "content": "…" }` for one rc file, resolving a relative
+name against `base` first and then Taskwarrior's own rc directories — the order
+an `include` directive resolves in. An include that points nowhere is a `404`,
+which is a normal answer rather than a failure. Reading is confined to the home
+directory, the rc file's own directory and the theme directories; `path` is
+canonicalised before that is decided.
+
+### `GET /api/env`
 
 ```json
 {
-  "taskVersion": "3.5.0",
   "taskrcPath": "/home/user/.taskrc",
-  "groups": [{ "name": "general", "count": 25 }],
-  "settings": [
-    {
-      "key": "color",
-      "value": "off",
-      "configuredValue": "on",
-      "group": "general",
-      "source": "taskrc",
-      "isOverride": true
-    }
-  ]
+  "taskrcMtime": 1787678356332.6,
+  "home": "/home/user",
+  "themeDirs": ["/opt/homebrew/share/doc/task/rc"]
 }
 ```
 
-### `GET /api/tasks`
+`taskrcMtime` is what the interface caches its configuration against: the
+configuration is re-read when the rc file changes, and served from memory
+otherwise.
 
-Returns the tasks from `task export`, ordered the way `task list` orders them.
-`status` selects the set and accepts only `pending` (the default), `completed`,
-or `all`; anything else is rejected with `400` and never reaches the command
-line.
+## What the interface computes
 
-The order follows `report.list.sort` from the configuration, so the interface
-and the command line agree about the same data. The applied specification is
-echoed back under `sort`, together with any clause teutates cannot sort by.
+### Settings
+
+Every effective setting reported by `task _show`, annotated with where the
+value comes from. `source` is `default`, `taskrc`, or `include:<file>`, derived
+by reading `~/.taskrc` and everything it includes. Keys that Taskwarrior does
+not recognise — typos, or settings that never existed — are flagged, since
+setting them has no effect; Taskwarrior reports them in a footnote of `task
+show`, which is the only place that information exists.
+
+A configured value is shown next to the effective one only when the two differ.
+`color` is the common case: it falls back to `off` without a TTY, so the rc
+file says `on` and Taskwarrior reports `off`.
+
+### Tasks
+
+The tasks from `task export`, ordered the way `task list` orders them. The
+order follows `report.list.sort` from the configuration, so the interface and
+the command line agree about the same data. A clause teutates cannot sort by is
+named in the interface rather than silently skipped.
 
 > **There is no global `sort` setting in Taskwarrior.** Sorting is configured
 > per report (`report.<name>.sort`). A bare `sort` line in `.taskrc` is an
@@ -222,31 +258,9 @@ echoed back under `sort`, together with any clause teutates cannot sort by.
 > so does the settings view.
 
 Dates are converted from Taskwarrior's `20260831T215959Z` format to RFC 3339 so
-the browser can parse them. Attributes that are not part of the standard schema
-are collected under `udas`, since user-defined attributes differ per
-installation and a fixed schema would drop them.
-
-```json
-{
-  "status": "pending",
-  "counts": { "total": 28, "pending": 28, "active": 2, "overdue": 4 },
-  "udaLabels": { "pom": "Pomodoris" },
-  "tasks": [
-    {
-      "id": 19,
-      "uuid": "46df3135-ff84-496a-891c-b1bf79991a67",
-      "description": "Flaschenvertrag fertigstellen",
-      "status": "pending",
-      "tags": ["privat"],
-      "priority": "H",
-      "urgency": 24.4096,
-      "due": "2026-08-23T21:59:59Z",
-      "udas": { "pom": "1" }
-    }
-  ],
-  "sort": { "report": "list", "spec": "start-,due+,project+,urgency-" }
-}
-```
+`Date` can parse them. Attributes that are not part of the standard schema are
+collected as user-defined attributes, since those differ per installation and a
+fixed schema would drop them.
 
 > **`id` is not an identity.** Taskwarrior assigns short working ids to pending
 > tasks only; completed tasks export as `id: 0`. Use `uuid` to identify a task.
@@ -262,9 +276,13 @@ the interface always has something to show:
 
 | Status | Cause |
 |--------|-------|
-| `400` | Invalid parameter, e.g. an unsupported `status` value |
-| `404` | Unknown route or missing static file |
-| `405` | Known path, wrong method — teutates is read-only and answers `GET` |
+| `400` | Malformed body, or an argument list the allowlist refuses |
+| `403` | A write from another origin, or an rc path outside the readable directories |
+| `404` | Unknown route, missing static file, or an rc file that is not there |
+| `405` | Known path, wrong method |
+| `413` | Request body or rc file too large |
+| `415` | `/api/task` reached without a JSON content type |
+| `421` | A `Host` header naming something other than this server |
 | `503` | `task` is not on the PATH |
 | `504` | Taskwarrior did not respond within the timeout |
 | `500` | Anything else |

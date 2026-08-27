@@ -169,7 +169,12 @@ function sectionsOf(settings: Setting[]): Array<[string, Setting[]]> {
   return sections;
 }
 
-export function settingsView(): View {
+/** Reads the Taskwarrior configuration. The view is handed one instead of
+ *  reaching for the real reader itself, so it can be rendered against a
+ *  fixture. */
+export type ConfigLoader = (signal: AbortSignal) => Promise<Config>;
+
+export function settingsView(load: ConfigLoader = fetchConfig): View {
   return {
     title: "Settings",
     searchPlaceholder: "Filter keys and values…",
@@ -189,7 +194,7 @@ export function settingsView(): View {
 
       let config: Config;
       try {
-        config = await fetchConfig(context.signal);
+        config = await load(context.signal);
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
         const message =
