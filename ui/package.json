@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:css": "tailwindcss -i src/input.css -o ../backend/webui/assets/styles.css --minify",
-    "build:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --minify --outfile=../backend/webui/assets/app.js",
+    "build:css": "tailwindcss -i src/input.css -o ../server/dist/assets/styles.css --minify",
+    "build:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --minify --outfile=../server/dist/assets/app.js",
     "build": "npm run build:css && npm run build:js && npm run build:html",
-    "watch:css": "tailwindcss -i src/input.css -o ../backend/webui/assets/styles.css --watch",
-    "watch:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=../backend/webui/assets/app.js --watch",
+    "watch:css": "tailwindcss -i src/input.css -o ../server/dist/assets/styles.css --watch",
+    "watch:js": "esbuild src/main.ts --bundle --format=esm --target=es2022 --outfile=../server/dist/assets/app.js --watch",
     "typecheck": "tsc --noEmit",
-    "test": "esbuild test/*.test.ts --bundle --platform=node --format=esm --packages=external --outdir=.test-build && node --test .test-build/*.js",
-    "build:html": "cp index.html ../backend/webui/index.html"
+    "test": "esbuild test/*.test.ts test/taskwarrior/*.test.ts --bundle --platform=node --format=esm --packages=external --outbase=test --outdir=.test-build && node --test .test-build/*.js .test-build/taskwarrior/*.js",
+    "build:html": "cp index.html ../server/dist/index.html",
+    "start": "node ../server/teutates.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.14",

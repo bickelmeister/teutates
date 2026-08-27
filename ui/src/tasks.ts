@@ -150,7 +150,14 @@ function renderHeader(): HTMLElement {
   return header;
 }
 
-export function tasksView(): View {
+/** Reads a task list. The view is handed one instead of reaching for the
+ *  real reader itself, so it can be rendered against a fixture. */
+export type TaskLoader = (
+  status: StatusFilter,
+  signal: AbortSignal,
+) => Promise<TaskList>;
+
+export function tasksView(loadTasks: TaskLoader = fetchTasks): View {
   return {
     title: "Tasks",
     searchPlaceholder: "Filter description, project, tags…",
@@ -222,7 +229,7 @@ export function tasksView(): View {
       async function load(): Promise<void> {
         context.content.replaceChildren(notice("Loading tasks…"));
         try {
-          list = await fetchTasks(status, context.signal);
+          list = await loadTasks(status, context.signal);
         } catch (error) {
           if (error instanceof DOMException && error.name === "AbortError") return;
           const message =

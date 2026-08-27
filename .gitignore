@@ -1,19 +1,12 @@
-# Go
-bin/
-dist/
-*.exe
-*.dll
-*.so
-*.dylib
-*.out
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Go build cache
-.cache/
-.go/
-
-# Dependency
-# go.sum is intentionally committed: it pins module checksums.
-vendor/
+# Build output: the interface is rebuilt from ui/ and served from here.
+server/dist/
+ui/.test-build/
 
 # IDE
 .vscode/
@@ -23,21 +16,6 @@ vendor/
 *~
 .DS_Store
 
-# Node / Frontend
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-dist/
-build/
-
-# Generated UI bundle, embedded into the binary at build time.
-# The directory itself is tracked so `go:embed` has something to match on a
-# fresh clone, before the UI has ever been built.
-backend/webui/*
-!backend/webui/.gitkeep
-ui/.test-build/
-
 # Environment
 .env
 .env.local
@@ -45,7 +23,6 @@ ui/.test-build/
 
 # OS
 Thumbs.db
-.DS_Store
 
 # Logs
 *.log

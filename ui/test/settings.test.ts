@@ -3,7 +3,7 @@ import { after, before, describe, test } from "node:test";
 
 import type { Config } from "../src/api";
 import { settingsView } from "../src/settings";
-import { click, createHarness, mount, search, stubFetch, type Harness } from "./harness";
+import { click, createHarness, fails, mount, search, serves, type Harness } from "./harness";
 
 const fixture: Config = {
   taskVersion: "3.5.0",
@@ -45,8 +45,7 @@ function keys(): (string | null | undefined)[] {
 describe("settings view", () => {
   before(async () => {
     harness = createHarness();
-    stubFetch(fixture);
-    await mount(harness, settingsView());
+    await mount(harness, settingsView(serves(fixture)));
   });
   after(() => harness.close());
 
@@ -119,8 +118,7 @@ describe("settings view errors", () => {
   after(() => harness.close());
 
   test("a backend failure renders the server's message and hint", async () => {
-    stubFetch({ error: "`task` binary not found", hint: "Install Taskwarrior." }, 503);
-    await mount(harness, settingsView());
+    await mount(harness, settingsView(fails("`task` binary not found", "Install Taskwarrior.")));
 
     const content = harness.text("content");
     assert.match(content, /task` binary not found/);
@@ -131,8 +129,7 @@ describe("settings view errors", () => {
 describe("settings view navigation", () => {
   before(async () => {
     harness = createHarness();
-    stubFetch(fixture);
-    await mount(harness, settingsView());
+    await mount(harness, settingsView(serves(fixture)));
   });
   after(() => harness.close());
 
@@ -156,8 +153,7 @@ describe("settings view navigation", () => {
 describe("settings view unrecognized keys", () => {
   before(async () => {
     harness = createHarness();
-    stubFetch(withUnrecognized);
-    await mount(harness, settingsView());
+    await mount(harness, settingsView(serves(withUnrecognized)));
   });
   after(() => harness.close());
 
@@ -188,8 +184,7 @@ describe("settings view unrecognized keys", () => {
 
   test("a clean configuration shows no warning", async () => {
     const clean = createHarness();
-    stubFetch(fixture);
-    await mount(clean, settingsView());
+    await mount(clean, settingsView(serves(fixture)));
     assert.doesNotMatch(clean.text("content"), /not recognised/);
     clean.close();
   });

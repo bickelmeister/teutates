@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { JSDOM } from "jsdom";
 
+import { ConfigError } from "../src/api";
 import type { View, ViewContext } from "../src/view";
 
 /** A jsdom instance loaded with the real app shell, so the tests exercise
@@ -88,20 +89,20 @@ export function createHarness(): Harness {
   };
 }
 
-/** Serves a fixed payload to the next fetch calls. */
-export function stubFetch(body: unknown, status = 200): void {
-  globalThis.fetch = (async () =>
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { "content-type": "application/json" },
-    })) as typeof fetch;
+/** A loader that answers with a fixed payload, so a view can be rendered
+ *  without a server behind it. */
+export function serves<T>(payload: T): (...args: unknown[]) => Promise<T> {
+  return async () => payload;
 }
 
-/** Makes fetch fail the way an unreachable server does. */
-export function stubFetchFailure(): void {
-  globalThis.fetch = (async () => {
-    throw new TypeError("fetch failed");
-  }) as typeof fetch;
+/** A loader that fails the way an unreachable or unhappy server does. */
+export function fails(
+  message: string,
+  hint?: string,
+): (...args: unknown[]) => Promise<never> {
+  return async () => {
+    throw new ConfigError(message, hint);
+  };
 }
 
 export async function mount(harness: Harness, view: View): Promise<void> {
