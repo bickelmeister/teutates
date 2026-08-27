@@ -34,6 +34,7 @@ two things a browser cannot: run the `task` binary and read files.
 teutates/
 ├── server/
 │   ├── teutates.mjs            # the whole server: exec, rc files, static UI
+│   ├── dev.mjs                 # watches everything, runs it as one process
 │   ├── dist/                   # built interface, served from disk
 │   └── test/server.test.mjs    # allowlist, path guard, request guards
 ├── ui/
@@ -101,17 +102,36 @@ port rather than the process tree:
 lsof -ti:8080 | xargs kill
 ```
 
-### What needs rebuilding
+### Development
 
-| Changed | Needed |
-|---------|--------|
-| `server/teutates.mjs` | Stop the server and start it again |
-| `ui/**` | `npm run build`, then reload the page |
+```bash
+cd ui && npm run dev
+```
 
-The interface is read from disk per request, so a rebuild is visible on reload
-— the server does not need restarting for it. With `npm run watch:css` and
-`npm run watch:js` running alongside, a saved file is on screen after a reload.
-Both watchers run in the foreground and stop with Ctrl+C.
+One command, one foreground process. It watches everything a change can touch
+and stops all of it with Ctrl+C:
+
+| Changed | What happens |
+|---------|--------------|
+| `ui/src/**.ts` | esbuild rebuilds the bundle; reload the page |
+| `ui/src/input.css` | Tailwind rebuilds the stylesheet; reload the page |
+| `ui/index.html` | the app shell is copied into `server/dist`; reload the page |
+| `server/**.mjs` | the server restarts itself |
+
+The interface is read from disk per request, so nothing but a reload is needed
+after a rebuild — the server does not restart for it. Flags are passed through:
+`npm run dev -- --addr 127.0.0.1:9000`.
+
+Without the dev runner the same thing takes three terminals (`npm run
+watch:css`, `npm run watch:js`, `npm start`) and leaves `ui/index.html`
+unwatched, since `build:html` is a one-off copy.
+
+### Production build
+
+```bash
+cd ui && npm run build
+node server/teutates.mjs
+```
 
 ### Flags
 

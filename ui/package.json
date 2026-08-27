@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "test": "esbuild test/*.test.ts test/taskwarrior/*.test.ts --bundle --platform=node --format=esm --packages=external --outbase=test --outdir=.test-build && node --test .test-build/*.js .test-build/taskwarrior/*.js",
     "build:html": "cp index.html ../server/dist/index.html",
-    "start": "node ../server/teutates.mjs"
+    "start": "node ../server/teutates.mjs",
+    "dev": "node ../server/dev.mjs"
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.1.14",
